@@ -40,6 +40,7 @@ results/
 
 # Raw & curated datasets (PEP725 licensing, AgERA5, Sentinel-2, embeddings)
 data/
+modeling_data/
 output/
 *.csv
 *.parquet
