@@ -1,0 +1,5 @@
+name: temporal_6_1_2
+group_col: Year
+train_years: [2017, 2018, 2019, 2020, 2021,2022]
+val_years: [2023]
+test_years: [2024, 2025]

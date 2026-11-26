@@ -1,0 +1,16 @@
+# Sentinel-2 L2A (SR) NDVI extraction & daily 1..365 interpolation configuration
+gee_project: thesis-phenology
+s2_collection: COPERNICUS/S2_SR_HARMONIZED
+s2_bands:
+  - B4
+  - B8
+  - SCL
+scl_keep_codes:
+  - 4
+  - 5
+  - 6
+  - 7
+ndvi_min: -0.2
+ndvi_max: 1.0
+scale_meters: 10
+max_workers: 8

@@ -1,0 +1,9 @@
+# PEP725 phenology curation & AgERA5 CDS weather / GDD / AGDD configuration
+pep725_csv: pep725_data.csv
+country: Germany
+crop_code: BARW
+target_bbch: 51
+start_date: "2017-01-01"
+end_date: "2025-12-31"
+cds_max_workers: 2
+cds_max_retries: 5

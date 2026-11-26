@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phenology-fm-benchmark"
+version = "0.1.0"
+description = "Satellite Foundation Model Embeddings and Climate/Spectral Baselines for Crop Phenology Prediction (LOYOCV)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Dimitrios Papanikolaou" }
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

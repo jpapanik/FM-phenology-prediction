@@ -1,0 +1,4 @@
+name: tessera
+prefix: tessera
+file: curated_for_modeling_with_tessera_embeddings.csv
+dim: 128

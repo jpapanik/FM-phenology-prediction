@@ -1,0 +1,4 @@
+name: germany_whbw_bbch0
+folder: germany_whbw_bbch0_2017-01-01_2020-12-31
+baseline_file: curated_for_modeling.csv
+display_name: "Germany, WHBW, BBCH 0, Period: 2017-2020"

@@ -1,0 +1,4 @@
+name: france_sbt_bbch39
+folder: france_sbt_bbch39_2017-01-01_2022-12-31
+baseline_file: curated_for_modeling.csv
+display_name: "France, SBT, BBCH 39, Period: 2017-2022"

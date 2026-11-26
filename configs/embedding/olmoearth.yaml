@@ -1,0 +1,4 @@
+name: olmoearth
+prefix: olmo
+file: curated_for_modeling_with_olmo_embeddings.csv
+dim: 128

@@ -1,0 +1,4 @@
+name: alphaearth
+prefix: alphaearth
+file: curated_for_modeling_with_alphaearth_embeddings.csv
+dim: 64

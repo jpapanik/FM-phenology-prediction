@@ -1,0 +1,4 @@
+name: minirocket
+use_pca: false
+n_pca_components: 24
+minirocket_k: 10

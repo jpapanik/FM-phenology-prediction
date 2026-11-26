@@ -1,0 +1,4 @@
+name: presto
+prefix: presto
+file: curated_for_modeling_with_presto_embeddings.csv
+dim: 128

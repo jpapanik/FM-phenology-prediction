@@ -1,0 +1,4 @@
+name: pca_reduced
+use_pca: true
+n_pca_components: 24
+minirocket_k: 10

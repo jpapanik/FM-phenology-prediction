@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing & linters
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment variables & local credentials
+.env
+.env.*
+*.pem
+*.key
+.cdsapirc
+
+# Hydra / experiment run outputs & logs
+logs/
+outputs/
+multirun/
+results/
+
+# Raw & curated datasets (PEP725 licensing, AgERA5, Sentinel-2, embeddings)
+data/
+output/
+*.csv
+*.parquet
+*.feather
+*.nc
+*.zarr/
+*.tif
+*.tiff
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.zip
+
+# IDE & OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,4 @@
+name: germany_barw_bbch51
+folder: germany_barw_bbch51_2017-01-01_2025-12-31
+baseline_file: curated_for_modeling.csv
+display_name: "Germany, BARW, BBCH 51, Period: 2017-2025"

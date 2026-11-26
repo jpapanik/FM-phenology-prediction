@@ -1,0 +1,8 @@
+# Foundation model embedding extraction configuration (PRESTO, TESSERA, AlphaEarth, OlmoEarth)
+gee_project: thesis-phenology
+min_year: 2017
+presto_batch_size: 256
+tessera_batch_size: 50
+gee_batch_size: 500
+olmo_store_url: s3://olmoearth/olmoearth-v1-3-embeddings/embeddings.zarr
+olmo_n_dims: 128

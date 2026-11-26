@@ -1,0 +1,17 @@
+defaults:
+  - dataset: germany_barw_bbch51
+  - embedding: none
+  - features: unreduced
+  - model: rf
+  - cv: loyocv
+  - extraction: pep725_agera5
+  - _self_
+
+seed: 42
+data_root: ${oc.env:DATA_ROOT,modeling_data}
+raw_data_root: ${oc.env:RAW_DATA_ROOT,data}
+results_root: ${oc.env:RESULTS_ROOT,results}
+
+hydra:
+  run:
+    dir: logs/runs/${now:%Y-%m-%d}/${now:%H-%M-%S}_${dataset.name}_${embedding.name}_${features.name}_${model.name}
