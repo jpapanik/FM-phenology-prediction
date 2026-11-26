@@ -16,7 +16,8 @@ FM-phenology-prediction/
 │   ├── extraction/                 # pep725_agera5, sentinel2_ndvi, embeddings
 │   ├── features/                   # unreduced, domain_reduced, pca_reduced, ts_curves_c22, manual_timesat_variables
 │   └── model/                      # rf, xgboost (and svr)
-├── data/                           # Raw downloads & curated study folders (gitignored)
+├── data/                           # Raw downloads (gitignored)
+├── modeling_data/                  # Curated study folders (gitignored)
 ├── logs/                           # Timestamped PowerShell batch execution logs (gitignored)
 ├── notebooks/                      # Exploratory Jupyter notebooks
 ├── results/                        # Structured CSV metrics & diagnostic figures (gitignored)
