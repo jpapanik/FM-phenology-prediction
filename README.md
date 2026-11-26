@@ -15,7 +15,7 @@ FM-phenology-prediction/
 │   ├── embedding/                  # none, presto, tessera, alphaearth, olmoearth
 │   ├── extraction/                 # pep725_agera5, sentinel2_ndvi, embeddings
 │   ├── features/                   # unreduced, domain_reduced, pca_reduced, ts_curves_c22, manual_timesat_variables
-│   └── model/                      # rf, xgboost (and svr)
+│   └── model/                      # rf, xgboost
 ├── data/                           # Raw downloads (gitignored)
 ├── modeling_data/                  # Curated study folders (gitignored)
 ├── logs/                           # Timestamped PowerShell batch execution logs (gitignored)
