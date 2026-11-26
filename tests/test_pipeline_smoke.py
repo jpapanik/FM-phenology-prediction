@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from src.data.load_dataset import build_baseline_feature_sets, build_fm_feature_sets
+from src.load_data.load_dataset import build_baseline_feature_sets, build_fm_feature_sets
 from src.evaluation.metrics import compute_r2_decomposition, get_station_ids, save_fold_summary_and_r2
 from src.features.reduction import extract_domain_reduced_features
 from src.models.tuners import run_loyocv_experiment, run_pca_fm_loyocv_experiment
