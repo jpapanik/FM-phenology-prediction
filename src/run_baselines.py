@@ -5,7 +5,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 import numpy as np
 
 from src.features.manual_timesat_variables import extract_manual_timesat_features
-from src.data.load_dataset import build_baseline_feature_sets, load_phenology_dataset
+from src.load_data.load_dataset import build_baseline_feature_sets, load_phenology_dataset
 from src.evaluation.metrics import get_station_ids, save_fold_summary_and_r2
 from src.evaluation.plots import plot_r2_decomposition_and_trajectory, plot_scatter_grid
 from src.features.reduction import extract_domain_reduced_features
