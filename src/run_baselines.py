@@ -65,7 +65,7 @@ def main(cfg: DictConfig) -> None:
             "B1_NDVI_TIMESAT": tsat_cols
         }
         labels = {
-            "B1_NDVI_TIMESAT": "B2: NDVI TIMESAT",
+            "B1_NDVI_TIMESAT": "B1: NDVI TIMESAT",
         }
     else:
         raise ValueError(f"Unsupported features.name='{feat_mode}' for run_baselines.py")
@@ -77,8 +77,6 @@ def main(cfg: DictConfig) -> None:
     cfg_test_years = list(cfg.cv.test_years) if cfg.cv.get("test_years") else None
 
     if cfg.cv.name == "temporal_6_1_2":
-        te_mask = df_model["Year"].astype(int).isin(list(cfg.cv.test_years)).values
-        eval_station_ids = all_station_ids[te_mask]
         preds_dict, actual_doy, test_years = run_temporal_6_1_2_experiment(
             df=df_model,
             feature_sets=feature_sets,
@@ -99,6 +97,12 @@ def main(cfg: DictConfig) -> None:
             cv_years=cfg_cv_years,
             test_years=cfg_test_years,
         )
+
+    if cfg_test_years is not None:
+        te_mask = df_model["Year"].astype(int).isin(cfg_test_years).values
+        eval_station_ids = all_station_ids[te_mask]
+    else:
+        eval_station_ids = all_station_ids
 
     model_entries = [(k, labels[k], preds_dict[k]) for k in feature_sets]
     print(f"\n=== BASELINES BENCHMARK ({cfg.dataset.display_name} | {cfg.model.name} | {feat_mode}) | {cfg.cv.name}===")
