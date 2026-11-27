@@ -164,6 +164,16 @@ def extract_presto_embeddings(
         )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    import urllib.request
+
+    # Downlaod weights 
+    default_weights = Path(presto.__file__).resolve().parent.parent / "data" / "default_model.pt"
+    if not default_weights.exists():
+        default_weights.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(
+            "https://raw.githubusercontent.com/nasaharvest/presto/main/data/default_model.pt",
+            default_weights,
+        )
     model = presto.Presto.load_pretrained().to(device)
     model.eval()
 
