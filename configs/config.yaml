@@ -12,6 +12,19 @@ data_root: ${oc.env:DATA_ROOT,modeling_data}
 raw_data_root: ${oc.env:RAW_DATA_ROOT,data}
 results_root: ${oc.env:RESULTS_ROOT,results}
 
+# Enforce identical station-year rows across Baselines and all 4 FMs.
+# Override with `sample_alignment_refs=[]` on CLI to disable.
+sample_alignment_refs:
+  - file: curated_for_modeling_with_tessera_embeddings.csv
+    prefix: tessera
+  - file: curated_for_modeling_with_alphaearth_embeddings.csv
+    prefix: alphaearth
+  - file: curated_for_modeling_with_presto_embeddings.csv
+    prefix: presto
+  - file: curated_for_modeling_with_olmo_embeddings.csv
+    prefix: olmo
+strict_alignment: false # Set true on final full-FM runs to catch missing files loudly
+
 hydra:
   run:
     dir: logs/runs/${now:%Y-%m-%d}/${now:%H-%M-%S}_${dataset.name}_${embedding.name}_${features.name}_${model.name}

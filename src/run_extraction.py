@@ -124,7 +124,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         print(f"Saved TESSERA embeddings to {out}")
 
     elif args.stage == "alphaearth":
-        out = extract_alphaearth_embeddings(study_folder=args.study_folder, modeling_csv_path=modeling_csv)
+        out = extract_alphaearth_embeddings(study_folder=args.study_folder, modeling_csv_path=modeling_csv, gee_project=args.gee_project)
         print(f"Saved AlphaEarth embeddings to {out}")
 
     elif args.stage == "olmoearth":

@@ -1,7 +1,7 @@
 """Foundation model embedding extractors: PRESTO, TESSERA, AlphaEarth, and OlmoEarth v1.3."""
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -30,21 +30,30 @@ def lonlat_to_utm_zone(lon: float, lat: float) -> int:
     return int(np.floor((lon + 180.0) / 6.0)) + 1
 
 
+def _init_ee(gee_project: str) -> None:
+    """Initialize Google Earth Engine with an explicit Cloud project ID."""
+    import ee
+
+    try:
+        ee.Initialize(project=gee_project)
+    except Exception:
+        ee.Authenticate()
+        ee.Initialize(project=gee_project)
+
+
 def extract_presto_raw_inputs(
     study_folder: Path,
     modeling_csv_path: Path,
     gee_project: str = "thesis-phenology",
     min_year: int = 2017,
     gee_batch_size: int = 500,
+    scl_keep_codes: Sequence[int] = (4, 5, 6, 7),
+    max_cloud_pct: float = 80.0,
 ) -> Path:
-    """Extract 12-month x 15-channel (S2 SR + S1 GRD + ERA5 monthly + NASADEM) GEE inputs to Parquet."""
+    """Extract 12-month x 15-channel (SCL-masked S2 SR + S1 GRD + ERA5 monthly + NASADEM) GEE inputs."""
     import ee
 
-    try:
-        ee.Initialize()
-    except Exception:
-        ee.Authenticate()
-        ee.Initialize(project=gee_project)
+    _init_ee(gee_project)
 
     df_target = pd.read_csv(modeling_csv_path, sep=";")
     df_target["Year"] = df_target["Year"].astype(int)
@@ -54,6 +63,12 @@ def extract_presto_raw_inputs(
     s2_bands = ["B2", "B3", "B4", "B8", "B5", "B6", "B7", "B8A", "B11", "B12"]
     s1_bands = ["VV", "VH"]
     dem = ee.Image("NASA/NASADEM_HGT/001").select("elevation")
+    scl_codes = list(scl_keep_codes)
+
+    def _mask_s2_scl(img):
+        scl = img.select("SCL")
+        clear_mask = scl.remap(scl_codes, [1] * len(scl_codes), 0).eq(1)
+        return img.select(s2_bands).updateMask(clear_mask)
 
     def _get_monthly_composite(year: int, month: int):
         m_str = f"{month:02d}"
@@ -63,8 +78,8 @@ def extract_presto_raw_inputs(
         s2 = (
             ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
             .filterDate(start, end)
-            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 50))
-            .select(s2_bands)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_pct))
+            .map(_mask_s2_scl)
             .median()
         )
         s1 = (
@@ -132,8 +147,9 @@ def extract_presto_embeddings(
     batch_size: int = 256,
     gee_batch_size: int = 500,
 ) -> Path:
-    """Compute 128-dim PRESTO encoder embeddings and save curated_for_modeling_with_presto_embeddings.csv."""
+    """Compute 128-dim PRESTO encoder embeddings with native token masking for missing months/bands."""
     import presto
+    from presto.dataops.pipelines.s1_s2_era5_srtm import NORMED_BANDS
     import torch
 
     parquet_path = raw_input_path or (study_folder / "presto_raw_inputs_temp.parquet")
@@ -154,31 +170,59 @@ def extract_presto_embeddings(
     df_inputs = pd.read_parquet(parquet_path)
     n_obs = len(df_inputs)
 
+    band_to_idx = {name: i for i, name in enumerate(NORMED_BANDS)}
     s2_band_keys = ["B2", "B3", "B4", "B8", "B5", "B6", "B7", "B8A", "B11", "B12"]
     s1_band_keys = ["VV", "VH"]
     era5_band_keys = ["temperature_2m", "total_precipitation"]
     srtm_band_keys = ["elevation", "slope"]
 
     all_x, all_mask, all_dw = [], [], []
+    masked_s2_months = 0
+
     for _, row in df_inputs.iterrows():
-        s2_vals = np.zeros((12, 10), dtype=np.float32)
-        s1_vals = np.zeros((12, 2), dtype=np.float32)
-        era5_vals = np.zeros((12, 2), dtype=np.float32)
+        s2_vals = np.zeros((12, len(s2_band_keys)), dtype=np.float32)
+        s1_vals = np.zeros((12, len(s1_band_keys)), dtype=np.float32)
+        era5_vals = np.zeros((12, len(era5_band_keys)), dtype=np.float32)
+
+        s2_missing = np.zeros((12, len(s2_band_keys)), dtype=bool)
+        s1_missing = np.zeros((12, len(s1_band_keys)), dtype=bool)
+        era5_missing = np.zeros((12, len(era5_band_keys)), dtype=bool)
+
         for m in range(1, 13):
             prefix = f"m{m:02d}_"
             for b_idx, b in enumerate(s2_band_keys):
-                val = row.get(f"{prefix}s2_{b}", 0.0)
-                s2_vals[m - 1, b_idx] = 0.0 if pd.isna(val) else float(val)
-            for b_idx, b in enumerate(s1_band_keys):
-                val = row.get(f"{prefix}s1_{b}", -15.0)
-                s1_vals[m - 1, b_idx] = -15.0 if pd.isna(val) else float(val)
-            t_val = row.get(f"{prefix}temp", 283.15)
-            p_val = row.get(f"{prefix}precip", 0.0)
-            era5_vals[m - 1, 0] = 283.15 if pd.isna(t_val) else float(t_val)
-            era5_vals[m - 1, 1] = 0.0 if pd.isna(p_val) else float(p_val)
+                val = row.get(f"{prefix}s2_{b}", np.nan)
+                if pd.isna(val) or not np.isfinite(float(val)):
+                    s2_missing[m - 1, b_idx] = True
+                    s2_vals[m - 1, b_idx] = 0.0
+                else:
+                    s2_vals[m - 1, b_idx] = float(val)
 
-        elev_val = row.get("m01_elev", 100.0)
-        elev = 100.0 if pd.isna(elev_val) else float(elev_val)
+            for b_idx, b in enumerate(s1_band_keys):
+                val = row.get(f"{prefix}s1_{b}", np.nan)
+                if pd.isna(val) or not np.isfinite(float(val)):
+                    s1_missing[m - 1, b_idx] = True
+                    s1_vals[m - 1, b_idx] = 0.0
+                else:
+                    s1_vals[m - 1, b_idx] = float(val)
+
+            t_val = row.get(f"{prefix}temp", np.nan)
+            if pd.isna(t_val) or not np.isfinite(float(t_val)):
+                era5_missing[m - 1, 0] = True
+                era5_vals[m - 1, 0] = 283.15
+            else:
+                era5_vals[m - 1, 0] = float(t_val)
+
+            p_val = row.get(f"{prefix}precip", np.nan)
+            if pd.isna(p_val) or not np.isfinite(float(p_val)):
+                era5_missing[m - 1, 1] = True
+                era5_vals[m - 1, 1] = 0.0
+            else:
+                era5_vals[m - 1, 1] = float(p_val)
+
+        elev_val = row.get("m01_elev", np.nan)
+        elev_missing = pd.isna(elev_val) or not np.isfinite(float(elev_val))
+        elev = 0.0 if elev_missing else float(elev_val)
         srtm_vals = np.tile(np.array([elev, 0.0], dtype=np.float32), (12, 1))
 
         x, mask, dw = presto.construct_single_presto_input(
@@ -191,9 +235,55 @@ def extract_presto_embeddings(
             srtm=torch.tensor(srtm_vals, dtype=torch.float32),
             srtm_bands=srtm_band_keys,
         )
+
+        # Explicitly mask missing raw observations instead of feeding fake placeholder values
+        for m_idx in range(12):
+            if s2_missing[m_idx].any():
+                masked_s2_months += 1
+            for b_idx, b in enumerate(s2_band_keys):
+                if s2_missing[m_idx, b_idx] and b in band_to_idx:
+                    idx_ch = band_to_idx[b]
+                    mask[m_idx, idx_ch] = 1
+                    x[m_idx, idx_ch] = 0.0
+            # Presto derives NDVI from B4 and B8 internally; mask NDVI if either band was missing
+            if "NDVI" in band_to_idx and (
+                s2_missing[m_idx, s2_band_keys.index("B4")]
+                or s2_missing[m_idx, s2_band_keys.index("B8")]
+            ):
+                idx_ndvi = band_to_idx["NDVI"]
+                mask[m_idx, idx_ndvi] = 1
+                x[m_idx, idx_ndvi] = 0.0
+
+            for b_idx, b in enumerate(s1_band_keys):
+                if s1_missing[m_idx, b_idx] and b in band_to_idx:
+                    idx_ch = band_to_idx[b]
+                    mask[m_idx, idx_ch] = 1
+                    x[m_idx, idx_ch] = 0.0
+
+            for b_idx, b in enumerate(era5_band_keys):
+                if era5_missing[m_idx, b_idx] and b in band_to_idx:
+                    idx_ch = band_to_idx[b]
+                    mask[m_idx, idx_ch] = 1
+                    x[m_idx, idx_ch] = 0.0
+
+        if elev_missing and "elevation" in band_to_idx:
+            idx_el = band_to_idx["elevation"]
+            mask[:, idx_el] = 1
+            x[:, idx_el] = 0.0
+        # Slope is not extracted from NASADEM; mask it so Presto ignores it cleanly
+        if "slope" in band_to_idx:
+            idx_sl = band_to_idx["slope"]
+            mask[:, idx_sl] = 1
+            x[:, idx_sl] = 0.0
+
         all_x.append(x)
         all_mask.append(mask)
         all_dw.append(dw)
+
+    print(
+        f"[PRESTO] Masked {masked_s2_months}/{n_obs * 12} missing Sentinel-2 site-months "
+        f"({100.0 * masked_s2_months / max(n_obs * 12, 1):.1f}%)."
+    )
 
     x_tensor = torch.stack(all_x)
     mask_tensor = torch.stack(all_mask)
@@ -269,17 +359,14 @@ def extract_tessera_embeddings(
 def extract_alphaearth_embeddings(
     study_folder: Path,
     modeling_csv_path: Path,
+    gee_project: str = "thesis-phenology",
     min_year: int = 2017,
     gee_batch_size: int = 500,
 ) -> Path:
     """Extract 64-dim AlphaEarth annual embeddings via GEE and save enriched CSV."""
     import ee
 
-    try:
-        ee.Initialize()
-    except Exception:
-        ee.Authenticate()
-        ee.Initialize()
+    _init_ee(gee_project)
 
     df_master = pd.read_csv(modeling_csv_path, sep=";")
     df_master["Year"] = df_master["Year"].astype(int)
@@ -290,7 +377,7 @@ def extract_alphaearth_embeddings(
     extracted_dfs = []
 
     for year in sorted(df_alpha_base["Year"].unique()):
-        df_year = df_master[df_master["Year"] == year].copy()
+        df_year = df_alpha_base[df_alpha_base["Year"] == year].copy()
         if df_year.empty:
             continue
         annual_mosaic = (
@@ -346,13 +433,12 @@ def extract_olmoearth_embeddings(
     zarr.config.set({"array.sharding_coalesce_max_gap_bytes": 0})
 
     df_base = pd.read_csv(modeling_csv_path, sep=";")
-    utm_zones = [
+    df_work = df_base.reset_index(drop=True).copy()
+    df_work["_utm_zone"] = [
         lonlat_to_utm_zone(float(lon), float(lat))
-        for lon, lat in zip(df_base["Longitude"], df_base["Latitude"])
+        for lon, lat in zip(df_work["Longitude"], df_work["Latitude"])
     ]
-    df_work = df_base.copy()
-    df_work["_utm_zone"] = utm_zones
-    df_work["_year_str"] = df_work["Year"].astype(str)
+    df_work["_year_str"] = df_work["Year"].astype(int).astype(str)
 
     emb_matrix = np.full((len(df_work), n_dims), np.nan, dtype="float32")
     for zone_num, df_zone in df_work.groupby("_utm_zone"):
@@ -371,9 +457,12 @@ def extract_olmoearth_embeddings(
             pos_in_zone = df_zone.index.get_indexer(idxs)
             xs = xr.DataArray(utm_x[pos_in_zone], dims="points")
             ys = xr.DataArray(utm_y[pos_in_zone], dims="points")
-            sampled_q = arr.sel(time=yr_str).sel(x=xs, y=ys, method="nearest").values
-            if sampled_q.ndim == 2 and sampled_q.shape[0] == n_dims and sampled_q.shape[1] == len(idxs):
-                sampled_q = sampled_q.T
+            sampled_da = arr.sel(time=yr_str).sel(x=xs, y=ys, method="nearest").squeeze(drop=True)
+            if "points" in sampled_da.dims and "band" in sampled_da.dims:
+                sampled_da = sampled_da.transpose("points", "band")
+            sampled_q = sampled_da.values
+            if sampled_q.ndim == 1:
+                sampled_q = sampled_q[None, :]
             emb_matrix[idxs, :] = dequantize_olmo(sampled_q)
 
     emb_cols = [f"olmo_{i}" for i in range(n_dims)]
